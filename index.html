@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mirror">
+<meta name="theme-color" content="#0A0A0A">
+<title>Mirror</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0A0A0A;--surface:#141414;--border:#1E1E1E;--text:#F0EDE8;--muted:#4A4540;--accent:#C8A96E;--danger:#C47B6B;--safe:#7CB5A0;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+.screen{display:none;height:100vh;overflow-y:auto;overflow-x:hidden;flex-direction:column;}
+.screen.active{display:flex;}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:72px;background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom);z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;color:var(--muted);font-size:10px;font-family:'DM Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:8px 0;transition:color .2s;cursor:pointer;}
+.nav-btn.active{color:var(--accent);}
+.home-header{padding:56px 24px 14px;display:flex;justify-content:space-between;align-items:flex-start;}
+.home-date{font-size:12px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.home-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--text);margin-top:4px;}
+.quote-card{margin:0 16px 12px;background:linear-gradient(135deg,rgba(200,169,110,.08),rgba(124,181,160,.06));border:1px solid rgba(200,169,110,.2);border-radius:16px;padding:14px 16px;}
+.quote-text{font-family:'DM Serif Display',serif;font-style:italic;font-size:13px;color:var(--text);line-height:1.6;margin-bottom:4px;}
+.quote-source{font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.untracked-bar{margin:0 16px 12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;}
+.untracked-progress{height:3px;background:var(--border);border-radius:2px;margin-top:8px;}
+.untracked-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .4s;}
+.timer-card{margin:0 16px 10px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px;position:relative;overflow:hidden;}
+.timer-card.running{border-color:var(--accent);}
+.timer-card.running::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);animation:pulse-bar 2s ease-in-out infinite;}
+@keyframes pulse-bar{0%,100%{opacity:.4}50%{opacity:1}}
+.timer-label{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}
+.timer-display{font-family:'DM Serif Display',serif;font-size:50px;color:var(--text);letter-spacing:-1px;margin-bottom:16px;line-height:1;}
+.timer-display.running{color:var(--accent);}
+.timer-actions{display:flex;gap:10px;}
+.btn-primary{flex:1;padding:14px;border-radius:12px;background:var(--accent);color:#0A0A0A;font-size:14px;font-weight:500;border:none;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity .15s;}
+.btn-primary:active{opacity:.8;}
+.btn-secondary{padding:14px 16px;border-radius:12px;background:var(--border);color:var(--text);font-size:14px;border:none;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.btn-ghost{width:100%;padding:14px;border-radius:12px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.action-btn-row{padding:0 16px 10px;display:flex;gap:8px;}
+.action-btn-small{flex:1;padding:11px 8px;border-radius:14px;background:transparent;border:1px dashed var(--border);color:var(--muted);font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;}
+.section-header{padding:0 24px 10px;display:flex;justify-content:space-between;align-items:center;}
+.section-title{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;}
+.section-total{font-size:12px;color:var(--accent);}
+.log-list{padding:0 16px;display:flex;flex-direction:column;gap:8px;margin-bottom:110px;}
+.log-item{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;transition:border-color .2s;}
+.log-item.show-actions{border-color:var(--muted);}
+.log-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.log-info{flex:1;min-width:0;}
+.log-name{font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.log-time{font-size:11px;color:var(--muted);margin-top:2px;}
+.log-duration{font-size:13px;color:var(--text);font-weight:500;flex-shrink:0;transition:opacity .2s;}
+.log-action-btns{display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .2s;flex-shrink:0;}
+.log-item.show-actions .log-action-btns{opacity:1;pointer-events:all;}
+.log-item.show-actions .log-duration{opacity:0;width:0;overflow:hidden;}
+.log-act-btn{width:34px;height:34px;border-radius:10px;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.log-act-edit{background:rgba(200,169,110,.15);color:var(--accent);}
+.log-act-del{background:rgba(196,123,107,.15);color:var(--danger);}
+.stats-header{padding:56px 24px 16px;}
+.stats-title{font-family:'DM Serif Display',serif;font-size:26px;color:var(--text);margin-bottom:4px;}
+.stats-subtitle{font-size:12px;color:var(--muted);}
+.day-toggle{margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:4px;display:flex;gap:4px;}
+.day-toggle-btn{flex:1;padding:9px;border-radius:10px;border:none;background:transparent;color:var(--muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;}
+.day-toggle-btn.active{background:var(--accent);color:#0A0A0A;font-weight:500;}
+.stat-row{display:flex;gap:10px;padding:0 16px 12px;}
+.stat-card{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;text-align:center;}
+.stat-card-value{font-family:'DM Serif Display',serif;font-size:22px;color:var(--accent);}
+.stat-card-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-top:4px;}
+.pie-container{margin:0 16px 14px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px;display:flex;flex-direction:column;align-items:center;}
+.pie-wrap{position:relative;width:180px;height:180px;margin-bottom:18px;}
+.pie-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.pie-total{font-family:'DM Serif Display',serif;font-size:24px;color:var(--text);}
+.pie-label{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.legend{width:100%;display:flex;flex-direction:column;gap:10px;}
+.legend-item{display:flex;align-items:center;gap:10px;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.legend-name{flex:1;font-size:13px;color:var(--text);}
+.legend-time{font-size:13px;color:var(--muted);}
+.legend-pct{font-size:11px;color:var(--muted);min-width:34px;text-align:right;}
+.entries-section{padding:0 16px;margin-bottom:100px;}
+.entry-row{padding:12px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+.entry-color{width:4px;height:34px;border-radius:2px;flex-shrink:0;}
+.entry-text{flex:1;}
+.entry-name{font-size:14px;color:var(--text);}
+.entry-when{font-size:11px;color:var(--muted);margin-top:2px;}
+.entry-dur{font-size:14px;color:var(--text);font-weight:500;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay.center{align-items:center;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-sheet{width:100%;background:var(--surface);border-radius:24px 24px 0 0;padding:20px 24px 40px;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:90vh;overflow-y:auto;}
+.modal-overlay.center .modal-sheet{border-radius:24px;margin:20px;transform:scale(.95);transition:transform .25s;width:auto;}
+.modal-overlay.center.open .modal-sheet{transform:scale(1);}
+.modal-overlay.open .modal-sheet{transform:translateY(0);}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px;}
+.modal-title{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:18px;}
+.modal-time{font-family:'DM Serif Display',serif;font-size:40px;color:var(--accent);text-align:center;margin-bottom:20px;}
+.label-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.label-chip{padding:11px;border-radius:14px;border:1px solid var(--border);background:var(--bg);text-align:center;cursor:pointer;transition:all .15s;font-size:12px;color:var(--muted);font-family:'DM Sans',sans-serif;}
+.label-chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(200,169,110,.08);}
+.label-chip-icon{font-size:17px;margin-bottom:2px;}
+.custom-input{width:100%;padding:13px 15px;background:var(--bg);border:1px solid var(--border);border-radius:14px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;}
+.custom-input:focus{border-color:var(--accent);}
+.custom-input::placeholder{color:var(--muted);}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-size:13px;padding:10px 20px;border-radius:20px;z-index:500;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.offline-badge{position:fixed;top:12px;right:16px;z-index:999;background:var(--danger);color:white;font-size:10px;letter-spacing:.08em;padding:4px 10px;border-radius:20px;display:none;font-family:'DM Sans',sans-serif;}
+.empty-state{text-align:center;padding:36px 28px;color:var(--muted);font-size:14px;line-height:1.7;}
+.empty-icon{font-size:32px;margin-bottom:12px;opacity:.4;}
+.onboard-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;text-align:center;}
+.onboard-icon{font-size:52px;margin-bottom:22px;}
+.onboard-title{font-family:'DM Serif Display',serif;font-size:30px;color:var(--text);margin-bottom:10px;line-height:1.2;}
+.onboard-body{font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:36px;max-width:280px;}
+.onboard-dots{display:flex;gap:8px;margin-bottom:36px;}
+.onboard-dot{width:6px;height:6px;border-radius:50%;background:var(--border);}
+.onboard-dot.active{background:var(--accent);width:20px;border-radius:3px;}
+.onboard-name-input{width:100%;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;color:var(--text);font-size:20px;font-family:'DM Serif Display',serif;outline:none;text-align:center;margin-bottom:14px;}
+.onboard-name-input:focus{border-color:var(--accent);}
+.onboard-name-input::placeholder{color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;}
+.scroll-pad{height:100px;}
+</style>
+</head>
+<body>
+
+<div class="offline-badge" id="offline-badge">● OFFLINE</div>
+<div class="toast" id="save-toast"></div>
+
+<!-- ONBOARDING -->
+<div id="onboarding" class="onboard-screen" style="display:none;">
+  <div id="ob-1">
+    <div class="onboard-icon">◎</div>
+    <div class="onboard-title">The mirror never lies.</div>
+    <div class="onboard-body">Mirror shows you exactly where your time goes. No filter. No excuses. Just the truth.</div>
+    <div class="onboard-dots"><div class="onboard-dot active"></div><div class="onboard-dot"></div><div class="onboard-dot"></div></div>
+    <button class="btn-primary" style="width:100%;padding:16px;font-size:16px;" onclick="obNext(2)">Let's go →</button>
+  </div>
+  <div id="ob-2" style="display:none;">
+    <div class="onboard-icon">⏱</div>
+    <div class="onboard-title">Start. Do your thing. Come back.</div>
+    <div class="onboard-body">Hit start before any activity. When you're done, label it. Build the habit and the mirror starts to speak.</div>
+    <div class="onboard-dots"><div class="onboard-dot"></div><div class="onboard-dot active"></div><div class="onboard-dot"></div></div>
+    <button class="btn-primary" style="width:100%;padding:16px;font-size:16px;" onclick="obNext(3)">Got it →</button>
+  </div>
+  <div id="ob-3" style="display:none;">
+    <div class="onboard-icon">✝️</div>
+    <div class="onboard-title">What's your name?</div>
+    <div class="onboard-body">Mirror is personal. Let's make it yours.</div>
+    <input class="onboard-name-input" id="ob-name-input" placeholder="Enter your first name" maxlength="20" autocomplete="off">
+    <div class="onboard-dots"><div class="onboard-dot"></div><div class="onboard-dot"></div><div class="onboard-dot active"></div></div>
+    <button class="btn-primary" style="width:100%;padding:16px;font-size:16px;" onclick="finishOnboarding()">Start tracking →</button>
+  </div>
+</div>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="home-header">
+    <div>
+      <div class="home-date" id="today-date"></div>
+      <div class="home-title" id="home-greeting">Mirror</div>
+    </div>
+    <div style="font-size:20px;opacity:.2;">◎</div>
+  </div>
+  <div class="quote-card"><div class="quote-text" id="daily-quote"></div><div class="quote-source">Faith + Consistency</div></div>
+
+  <!-- QUICK TIMER BAR (shows when a quick-log timer is running) -->
+  <div class="quick-timer-bar" id="quick-timer-bar">
+    <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;" id="quick-timer-dot"></div>
+    <div class="quick-timer-label" id="quick-timer-label">Training</div>
+    <div class="quick-timer-time" id="quick-timer-time">00:00</div>
+    <button class="quick-timer-stop" onclick="stopQuickTimer()">Done</button>
+  </div>
+
+  <!-- QUICK LOG ROW -->
+  <div class="quick-log-row" id="quick-log-row"></div>
+
+  <div class="untracked-bar">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div style="font-size:12px;color:var(--muted);">Tracked today</div>
+      <div style="font-size:13px;color:var(--accent);font-weight:500;" id="untracked-pct">0%</div>
+    </div>
+    <div class="untracked-progress"><div class="untracked-fill" id="untracked-fill" style="width:0%"></div></div>
+    <div style="margin-top:6px;font-size:11px;color:var(--muted);" id="untracked-text">0m tracked · 24h unaccounted</div>
+  </div>
+  <div class="timer-card" id="timer-card">
+    <div class="timer-label">Current Timer</div>
+    <div class="timer-display" id="timer-display">00:00:00</div>
+    <div class="timer-actions">
+      <button class="btn-primary" id="timer-btn" onclick="toggleTimer()">Start</button>
+      <button class="btn-secondary" id="label-btn" onclick="openLabelModal()" style="display:none;">Label & Save</button>
+    </div>
+  </div>
+  <div class="action-btn-row">
+    <button class="action-btn-small" onclick="openManualModal()">✏️ Log past activity</button>
+    <button class="action-btn-small" onclick="openScreenTimeModal()">📱 Screen Time</button>
+  </div>
+  <div class="section-header">
+    <div class="section-title">Today's Log</div>
+    <div class="section-total" id="total-today">0m tracked</div>
+  </div>
+  <div class="log-list" id="log-list">
+    <div class="empty-state"><div class="empty-icon">⏱</div>Hit Start to begin tracking your first activity</div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="screen" id="screen-stats">
+  <div class="stats-header">
+    <div class="stats-title">Your Mirror</div>
+    <div class="stats-subtitle" id="stats-date-label"></div>
+  </div>
+  <div class="day-toggle">
+    <button class="day-toggle-btn active" id="toggle-today" onclick="switchStatsDay('today')">Today</button>
+    <button class="day-toggle-btn" id="toggle-yesterday" onclick="switchStatsDay('yesterday')">Yesterday</button>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-card-value" id="stat-entries">0</div><div class="stat-card-label">Logged</div></div>
+    <div class="stat-card"><div class="stat-card-value" id="stat-hours">0m</div><div class="stat-card-label">Tracked</div></div>
+    <div class="stat-card"><div class="stat-card-value" id="stat-streak">0🔥</div><div class="stat-card-label">Streak</div></div>
+  </div>
+  <div class="pie-container" id="pie-container"><div style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0;">Start logging to see your breakdown</div></div>
+  <div class="section-header" style="margin-top:4px;"><div class="section-title">All Entries</div></div>
+  <div class="entries-section" id="entries-list"></div>
+</div>
+
+<!-- LABEL MODAL -->
+<div class="modal-overlay" id="label-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">What were you doing?</div>
+    <div class="modal-time" id="modal-time-display">00:00:00</div>
+    <div class="label-grid" id="label-grid"></div>
+    <input class="custom-input" id="custom-label" placeholder="Or type something custom..." maxlength="40">
+    <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="saveEntry()">Save to Mirror</button>
+    <button class="btn-ghost" onclick="discardTimer()">Discard</button>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit entry</div>
+    <div class="label-grid" id="edit-label-grid"></div>
+    <input class="custom-input" id="edit-custom-label" placeholder="Or type a custom label..." maxlength="40">
+    <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="saveEditEntry()">Save Changes</button>
+    <button class="btn-ghost" onclick="closeEditModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- MANUAL MODAL -->
+<div class="modal-overlay" id="manual-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Log a past activity</div>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <div style="flex:1;"><div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">Start Time</div><input type="time" id="manual-start" class="custom-input" style="margin-bottom:0;padding:12px 14px;" oninput="updateDurationPreview()"></div>
+      <div style="flex:1;"><div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">End Time</div><input type="time" id="manual-end" class="custom-input" style="margin-bottom:0;padding:12px 14px;" oninput="updateDurationPreview()"></div>
+    </div>
+    <div id="manual-duration-preview" style="text-align:center;font-family:'DM Serif Display',serif;font-size:24px;color:var(--accent);margin-bottom:12px;min-height:28px;"></div>
+    <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">What were you doing?</div>
+    <div class="label-grid" id="manual-label-grid"></div>
+    <input class="custom-input" id="manual-custom-label" placeholder="Or type something custom...">
+    <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="saveManualEntry()">Save to Mirror</button>
+    <button class="btn-ghost" onclick="closeManualModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- MORNING MODAL -->
+<div class="modal-overlay center" id="morning-modal">
+  <div class="modal-sheet">
+    <div style="text-align:center;margin-bottom:18px;">
+      <div style="font-size:34px;margin-bottom:10px;">🌅</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);margin-bottom:4px;" id="morning-greeting">Good morning</div>
+      <div style="font-size:13px;color:var(--muted);">How long did you sleep last night?</div>
+    </div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <button onclick="adjustSleep(-1)" style="width:44px;height:44px;border-radius:12px;background:var(--border);border:none;color:var(--text);font-size:20px;cursor:pointer;">−</button>
+        <div id="sleep-hours-display" style="font-family:'DM Serif Display',serif;font-size:46px;color:var(--accent);line-height:1;min-width:58px;text-align:center;">8</div>
+        <button onclick="adjustSleep(1)" style="width:44px;height:44px;border-radius:12px;background:var(--border);border:none;color:var(--text);font-size:20px;cursor:pointer;">+</button>
+      </div>
+      <div style="font-size:20px;color:var(--muted);padding:0 4px;padding-top:4px;">h</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <button onclick="adjustSleepMin(-15)" style="width:44px;height:44px;border-radius:12px;background:var(--border);border:none;color:var(--text);font-size:20px;cursor:pointer;">−</button>
+        <div id="sleep-mins-display" style="font-family:'DM Serif Display',serif;font-size:46px;color:var(--accent);line-height:1;min-width:58px;text-align:center;">00</div>
+        <button onclick="adjustSleepMin(15)" style="width:44px;height:44px;border-radius:12px;background:var(--border);border:none;color:var(--text);font-size:20px;cursor:pointer;">+</button>
+      </div>
+      <div style="font-size:20px;color:var(--muted);padding:0 4px;padding-top:4px;">m</div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:16px;">Tap + or − to adjust</div>
+    <div id="yesterday-preview" style="background:var(--bg);border-radius:14px;padding:12px;margin-bottom:14px;display:none;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">Yesterday at a glance</div>
+      <div id="yesterday-items"></div>
+    </div>
+    <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="saveSleepCheckin()">Save & See Yesterday</button>
+    <button onclick="skipMorningCheckin()" style="width:100%;padding:12px;background:transparent;border:none;color:var(--muted);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;">Skip for now</button>
+  </div>
+</div>
+
+<!-- SCREEN TIME MODAL -->
+<div class="modal-overlay center" id="screentime-modal">
+  <div class="modal-sheet" style="border-radius:24px;margin:16px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="modal-title" style="margin-bottom:0;">Screen Time Import</div>
+      <button onclick="closeScreenTimeModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Go to <strong style="color:var(--text)">Settings → Screen Time</strong>, screenshot your daily summary, then upload here.</div>
+    <div id="st-upload-area" onclick="document.getElementById('st-file-input').click()" style="border:1px dashed var(--border);border-radius:16px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:12px;">
+      <div style="font-size:28px;margin-bottom:8px;">📷</div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:4px;">Tap to upload screenshot</div>
+      <div style="font-size:12px;color:var(--muted);">From Camera Roll or Files</div>
+      <input type="file" id="st-file-input" accept="image/*" style="display:none;" onchange="handleScreenTimeImage(event)">
+    </div>
+    <div id="st-preview-wrap" style="display:none;margin-bottom:12px;"><img id="st-preview-img" style="width:100%;border-radius:12px;border:1px solid var(--border);"></div>
+    <div id="st-status" style="display:none;text-align:center;padding:14px;font-size:13px;color:var(--muted);"></div>
+    <div id="st-results" style="display:none;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">Detected from screenshot</div>
+      <div id="st-items-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+      <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="importScreenTimeEntries()">Add to Today's Log</button>
+      <button class="btn-ghost" onclick="closeScreenTimeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showScreen('home')"><span style="font-size:20px;">⏱</span>Track</button>
+  <button class="nav-btn" id="nav-stats" onclick="showScreen('stats')"><span style="font-size:20px;">◎</span>Mirror</button>
+</nav>
+
+<script>
+const LABELS=[{name:'Sleep',icon:'😴',color:'#7B9EC4'},{name:'Training',icon:'🏀',color:'#C8A96E'},{name:'Faith',icon:'✝️',color:'#A87BC4'},{name:'Family',icon:'🏡',color:'#7CB5A0'},{name:'Film Study',icon:'🎬',color:'#C47B6B'},{name:'School',icon:'📚',color:'#C4B87B'},{name:'Social Media',icon:'📱',color:'#888'},{name:'Travel',icon:'✈️',color:'#6B9E8A'},{name:'Food',icon:'🍽️',color:'#B87B5A'},{name:'Recovery',icon:'🧊',color:'#5A9EB8'},{name:'Business',icon:'💼',color:'#9E8A6B'},{name:'Rest',icon:'🛋️',color:'#6E6E6E'}];
+const QUOTES=['The mirror never lies. Your hours tell the truth.','Every hour is a vote for the person you\'re becoming.','Idle time is the enemy. Awareness is the weapon.','Who you say you are must match how you spend your hours.','Faith + Consistency. Nothing else.','The tape doesn\'t lie. Neither does your calendar.','Prove it. Not to them. To yourself.','Steward your time like it was given to you. Because it was.'];
+const APP_MAP={instagram:{label:'Instagram',color:'#888',icon:'📸'},tiktok:{label:'TikTok',color:'#888',icon:'🎵'},twitter:{label:'Twitter/X',color:'#888',icon:'🐦'},facebook:{label:'Facebook',color:'#888',icon:'👥'},youtube:{label:'YouTube',color:'#C47B6B',icon:'▶️'},safari:{label:'Safari',color:'#7B9EC4',icon:'🌐'},chrome:{label:'Chrome',color:'#7B9EC4',icon:'🌐'},messages:{label:'Messages',color:'#7CB5A0',icon:'💬'},whatsapp:{label:'WhatsApp',color:'#7CB5A0',icon:'💬'},facetime:{label:'FaceTime',color:'#7CB5A0',icon:'📞'},netflix:{label:'Netflix',color:'#C47B6B',icon:'🎬'},spotify:{label:'Spotify',color:'#7CB5A0',icon:'🎵'},snapchat:{label:'Snapchat',color:'#C4B87B',icon:'👻'},gmail:{label:'Email',color:'#9E8A6B',icon:'📧'},mail:{label:'Email',color:'#9E8A6B',icon:'📧'},phone:{label:'Phone Calls',color:'#7CB5A0',icon:'📞'}};
+
+let timerInterval=null,timerStart=null,timerRunning=false,elapsedOnPause=0;
+let selectedLabel=null,manualSelectedLabel=null,editSelectedLabel=null;
+let wakeLock=null,editingEntryId=null,parsedScreenTimeEntries=[];
+let statsDay='today',sleepHours=8,sleepMins=0;
+
+const todayKey=()=>new Date().toISOString().split('T')[0];
+const yesterdayKey=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split('T')[0];};
+function getEntries(key){return(JSON.parse(localStorage.getItem('mirror_entries')||'{}')[key||todayKey()])||[];}
+function saveEntries(entries,key){const all=JSON.parse(localStorage.getItem('mirror_entries')||'{}');all[key||todayKey()]=entries;localStorage.setItem('mirror_entries',JSON.stringify(all));localStorage.setItem('mirror_needs_sync','1');updateStreak();}
+function fmtDuration(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;if(h>0)return h+'h '+m+'m';if(m>0)return m+'m '+sec+'s';return sec+'s';}
+function fmtTimer(ms){const s=Math.floor(ms/1000);return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor((s%3600)/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function toTimeInput(d){return d.toTimeString().slice(0,5);}
+async function requestWakeLock(){try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch{}}
+function releaseWakeLock(){if(wakeLock){wakeLock.release();wakeLock=null;}}
+function showToast(msg){const t=document.getElementById('save-toast');t.textContent=msg||'✓ Saved';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+function updateOnlineStatus(){document.getElementById('offline-badge').style.display=navigator.onLine?'none':'block';}
+window.addEventListener('online',updateOnlineStatus);window.addEventListener('offline',updateOnlineStatus);
+
+function toggleTimer(){
+  if(!timerRunning){timerRunning=true;timerStart=Date.now()-elapsedOnPause;timerInterval=setInterval(()=>{document.getElementById('timer-display').textContent=fmtTimer(Date.now()-timerStart);},1000);document.getElementById('timer-btn').textContent='Pause';document.getElementById('timer-display').classList.add('running');document.getElementById('timer-card').classList.add('running');document.getElementById('label-btn').style.display='block';requestWakeLock();}
+  else{timerRunning=false;elapsedOnPause=Date.now()-timerStart;clearInterval(timerInterval);releaseWakeLock();document.getElementById('timer-btn').textContent='Resume';document.getElementById('timer-display').classList.remove('running');document.getElementById('timer-card').classList.remove('running');}
+}
+function getCurrentElapsed(){return timerRunning?Date.now()-timerStart:elapsedOnPause;}
+function resetTimer(){clearInterval(timerInterval);timerRunning=false;timerStart=null;elapsedOnPause=0;selectedLabel=null;releaseWakeLock();document.getElementById('timer-display').textContent='00:00:00';document.getElementById('timer-display').classList.remove('running');document.getElementById('timer-card').classList.remove('running');document.getElementById('timer-btn').textContent='Start';document.getElementById('label-btn').style.display='none';}
+
+function buildLabelGrid(gridId,onSelect){
+  const grid=document.getElementById(gridId);grid.innerHTML='';
+  LABELS.forEach(l=>{const chip=document.createElement('div');chip.className='label-chip';chip.innerHTML='<div class="label-chip-icon">'+l.icon+'</div>'+l.name;chip.onclick=()=>{grid.querySelectorAll('.label-chip').forEach(c=>c.classList.remove('selected'));chip.classList.add('selected');onSelect(l);};grid.appendChild(chip);});
+}
+
+function openLabelModal(){if(!timerRunning&&elapsedOnPause===0)return;if(timerRunning)toggleTimer();document.getElementById('modal-time-display').textContent=fmtTimer(getCurrentElapsed());document.getElementById('custom-label').value='';selectedLabel=null;buildLabelGrid('label-grid',l=>{selectedLabel=l;document.getElementById('custom-label').value='';});preselectLastLabel('label-grid',l=>selectedLabel=l);document.getElementById('label-modal').classList.add('open');}
+function saveEntry(){const cv=document.getElementById('custom-label').value.trim();if(!cv&&!selectedLabel){document.getElementById('custom-label').focus();return;}const elapsed=getCurrentElapsed();const entry={id:Date.now(),label:cv||selectedLabel.name,color:cv?'#888888':selectedLabel.color,duration:elapsed,startTime:Date.now()-elapsed,endTime:Date.now()};document.getElementById('label-modal').classList.remove('open');resetTimer();checkIntentional(entry,doSaveEntry);}
+function discardTimer(){document.getElementById('label-modal').classList.remove('open');resetTimer();}
+
+function openEditModal(id){editingEntryId=id;editSelectedLabel=null;const entry=getEntries().find(e=>e.id===id);if(!entry)return;document.getElementById('edit-custom-label').value='';buildLabelGrid('edit-label-grid',l=>{editSelectedLabel=l;document.getElementById('edit-custom-label').value='';});document.getElementById('edit-label-grid').querySelectorAll('.label-chip').forEach((chip,i)=>{if(LABELS[i]&&LABELS[i].name===entry.label){chip.classList.add('selected');editSelectedLabel=LABELS[i];}});document.getElementById('edit-modal').classList.add('open');}
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');editingEntryId=null;}
+function saveEditEntry(){const cv=document.getElementById('edit-custom-label').value.trim();if(!cv&&!editSelectedLabel){document.getElementById('edit-custom-label').focus();return;}const entries=getEntries();const idx=entries.findIndex(e=>e.id===editingEntryId);if(idx>-1){entries[idx].label=cv||editSelectedLabel.name;entries[idx].color=cv?'#888888':editSelectedLabel.color;saveEntries(entries);}closeEditModal();renderHome();renderStats();showToast('✓ Updated');}
+
+function deleteEntry(id){saveEntries(getEntries().filter(e=>e.id!==id));renderHome();renderStats();showToast('✕ Removed');}
+
+function openManualModal(){manualSelectedLabel=null;document.getElementById('manual-custom-label').value='';document.getElementById('manual-duration-preview').textContent='';const now=new Date(),earlier=new Date(now.getTime()-3600000);document.getElementById('manual-end').value=toTimeInput(now);document.getElementById('manual-start').value=toTimeInput(earlier);updateDurationPreview();buildLabelGrid('manual-label-grid',l=>{manualSelectedLabel=l;document.getElementById('manual-custom-label').value='';});preselectLastLabel('manual-label-grid',l=>manualSelectedLabel=l);document.getElementById('manual-modal').classList.add('open');}
+function closeManualModal(){document.getElementById('manual-modal').classList.remove('open');}
+function updateDurationPreview(){const s=document.getElementById('manual-start').value,e=document.getElementById('manual-end').value;if(!s||!e)return;const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);let diff=(eh*60+em)-(sh*60+sm);if(diff<0)diff+=1440;document.getElementById('manual-duration-preview').textContent=diff>0?(Math.floor(diff/60)>0?Math.floor(diff/60)+'h ':'')+diff%60+'m':'';}
+function saveManualEntry(){const s=document.getElementById('manual-start').value,e=document.getElementById('manual-end').value,cv=document.getElementById('manual-custom-label').value.trim();if(!s||!e){alert('Set start and end time.');return;}if(!cv&&!manualSelectedLabel){document.getElementById('manual-custom-label').focus();return;}const[sh,sm]=s.split(':').map(Number),[eh,em]=e.split(':').map(Number);let diffMin=(eh*60+em)-(sh*60+sm);if(diffMin<=0)diffMin+=1440;const durationMs=diffMin*60000;const now=new Date();const startTs=new Date(now.getFullYear(),now.getMonth(),now.getDate(),sh,sm,0).getTime();const entry={id:Date.now(),label:cv||manualSelectedLabel.name,color:cv?'#888888':manualSelectedLabel.color,duration:durationMs,startTime:startTs,endTime:startTs+durationMs,manual:true};closeManualModal();checkIntentional(entry,e=>{const entries=getEntries();entries.push(e);entries.sort((a,b)=>b.startTime-a.startTime);saveEntries(entries);renderHome();renderStats();renderQuickLogRow();showToast('✓ Saved');});}
+
+function adjustSleep(d){sleepHours=Math.max(0,Math.min(14,sleepHours+d));document.getElementById('sleep-hours-display').textContent=sleepHours;}
+function adjustSleepMin(d){sleepMins=Math.max(0,Math.min(45,sleepMins+d));document.getElementById('sleep-mins-display').textContent=String(sleepMins).padStart(2,'0');}
+function checkMorningModal(){if(localStorage.getItem('mirror_last_checkin')===todayKey())return;const h=new Date().getHours();if(h<4||h>13)return;const name=localStorage.getItem('mirror_name')||'';document.getElementById('morning-greeting').textContent='Good morning'+(name?' '+name:'');const yEntries=getEntries(yesterdayKey());const preview=document.getElementById('yesterday-preview'),itemsEl=document.getElementById('yesterday-items');if(yEntries.length>0){const agg={};yEntries.forEach(e=>{if(!agg[e.label])agg[e.label]={duration:0,color:e.color};agg[e.label].duration+=e.duration;});const sorted=Object.entries(agg).sort((a,b)=>b[1].duration-a[1].duration).slice(0,4);itemsEl.innerHTML=sorted.map(([l,d])=>'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><div style="width:8px;height:8px;border-radius:50%;background:'+d.color+';flex-shrink:0;"></div><div style="flex:1;font-size:13px;color:var(--text);">'+l+'</div><div style="font-size:13px;color:var(--muted);">'+fmtDuration(d.duration)+'</div></div>').join('');preview.style.display='block';}document.getElementById('morning-modal').classList.add('open');}
+function saveSleepCheckin(){const durationMs=(sleepHours*60+sleepMins)*60000;if(durationMs===0){skipMorningCheckin();return;}const yKey=yesterdayKey();const all=JSON.parse(localStorage.getItem('mirror_entries')||'{}');if(!all[yKey])all[yKey]=[];all[yKey]=all[yKey].filter(e=>!(e.label==='Sleep'&&e.manual));const now=Date.now();all[yKey].push({id:Date.now(),label:'Sleep',color:'#7B9EC4',duration:durationMs,startTime:now-durationMs,endTime:now,manual:true});all[yKey].sort((a,b)=>b.startTime-a.startTime);localStorage.setItem('mirror_entries',JSON.stringify(all));localStorage.setItem('mirror_last_checkin',todayKey());document.getElementById('morning-modal').classList.remove('open');switchStatsDay('yesterday');showScreen('stats');}
+function skipMorningCheckin(){localStorage.setItem('mirror_last_checkin',todayKey());document.getElementById('morning-modal').classList.remove('open');}
+
+function openScreenTimeModal(){parsedScreenTimeEntries=[];['st-results','st-status','st-preview-wrap'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('st-upload-area').style.display='block';document.getElementById('st-file-input').value='';document.getElementById('screentime-modal').classList.add('open');}
+function closeScreenTimeModal(){document.getElementById('screentime-modal').classList.remove('open');parsedScreenTimeEntries=[];}
+async function handleScreenTimeImage(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=async(e)=>{document.getElementById('st-preview-img').src=e.target.result;document.getElementById('st-preview-wrap').style.display='block';document.getElementById('st-upload-area').style.display='none';document.getElementById('st-status').style.display='block';document.getElementById('st-status').innerHTML='<span style="color:var(--accent);">Reading your screen time...</span>';document.getElementById('st-results').style.display='none';const base64=e.target.result.split(',')[1];try{const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},{type:'text',text:'This is an iPhone Screen Time screenshot. Extract every app and its usage time. Return ONLY a JSON array, no markdown: [{"app":"Instagram","minutes":45}]. Convert hours+minutes to total minutes. Only return the JSON array.'}]}]})});const data=await res.json();const text=data.content.find(b=>b.type==='text')?.text||'[]';let parsed;try{parsed=JSON.parse(text.replace(/```json|```/g,'').trim());}catch{throw new Error('Could not read screenshot.');}if(!Array.isArray(parsed)||!parsed.length)throw new Error('No screen time data found.');parsedScreenTimeEntries=parsed.map(item=>{const key=item.app.toLowerCase().replace(/[^a-z]/g,'');const mapped=Object.entries(APP_MAP).find(([k])=>key.includes(k));return{app:item.app,minutes:item.minutes,label:mapped?mapped[1].label:item.app,color:mapped?mapped[1].color:'#555',icon:mapped?mapped[1].icon:'📱',selected:true};});document.getElementById('st-status').style.display='none';document.getElementById('st-results').style.display='block';document.getElementById('st-items-list').innerHTML=parsedScreenTimeEntries.map((item,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:12px;border:1px solid var(--border);" id="st-item-'+i+'"><div style="width:8px;height:8px;border-radius:50%;background:'+item.color+';flex-shrink:0;"></div><div style="flex:1;"><div style="font-size:14px;color:var(--text);">'+item.icon+' '+item.label+'</div><div style="font-size:11px;color:var(--muted);">'+item.app+'</div></div><div style="font-size:13px;color:var(--accent);">'+(item.minutes>=60?Math.floor(item.minutes/60)+'h '+(item.minutes%60)+'m':item.minutes+'m')+'</div><button onclick="toggleSTItem('+i+')" id="st-toggle-'+i+'" style="width:28px;height:28px;border-radius:8px;background:var(--accent);border:none;color:#0A0A0A;font-size:13px;cursor:pointer;">✓</button></div>').join('');}catch(err){document.getElementById('st-status').innerHTML='<span style="color:var(--danger);">⚠ '+err.message+'</span>';}};reader.readAsDataURL(file);}
+function toggleSTItem(i){parsedScreenTimeEntries[i].selected=!parsedScreenTimeEntries[i].selected;const btn=document.getElementById('st-toggle-'+i),row=document.getElementById('st-item-'+i);if(parsedScreenTimeEntries[i].selected){btn.textContent='✓';btn.style.background='var(--accent)';btn.style.color='#0A0A0A';row.style.opacity='1';}else{btn.textContent='×';btn.style.background='var(--border)';btn.style.color='var(--muted)';row.style.opacity='0.4';}}
+function importScreenTimeEntries(){const toImport=parsedScreenTimeEntries.filter(e=>e.selected);if(!toImport.length){closeScreenTimeModal();return;}const entries=getEntries();let cursor=Date.now();toImport.forEach(item=>{const durationMs=item.minutes*60000;entries.push({id:Date.now()+Math.random(),label:item.label,color:item.color,duration:durationMs,startTime:cursor-durationMs,endTime:cursor,manual:true,fromScreenTime:true});cursor-=durationMs;});entries.sort((a,b)=>b.startTime-a.startTime);saveEntries(entries);closeScreenTimeModal();renderHome();renderStats();showToast('✓ Imported');}
+
+
+// ── QUICK LOG ─────────────────────────────────────────────
+let quickTimerInterval = null;
+let quickTimerStart = null;
+let quickTimerLabel = null;
+
+function getFrequentLabels() {
+  const entries = getEntries();
+  const all = JSON.parse(localStorage.getItem('mirror_entries') || '{}');
+  const counts = {};
+  Object.values(all).forEach(dayEntries => {
+    (dayEntries || []).forEach(e => { counts[e.label] = (counts[e.label] || 0) + 1; });
+  });
+  // Sort LABELS by usage count descending, return top 6
+  return [...LABELS].sort((a, b) => (counts[b.name] || 0) - (counts[a.name] || 0)).slice(0, 6);
+}
+
+function getLastUsedLabel() {
+  const all = JSON.parse(localStorage.getItem('mirror_entries') || '{}');
+  const today = getEntries();
+  if (today.length > 0) return today[0].label;
+  // Check yesterday
+  const yEntries = getEntries(yesterdayKey());
+  if (yEntries.length > 0) return yEntries[0].label;
+  return null;
+}
+
+function renderQuickLogRow() {
+  const row = document.getElementById('quick-log-row');
+  const frequent = getFrequentLabels();
+  // If no usage history yet, show default first 6
+  const toShow = frequent.length > 0 ? frequent : LABELS.slice(0, 6);
+  row.innerHTML = toShow.map(l =>
+    `<div class="quick-btn" onclick="quickLogTap('${l.name}', '${l.color}', '${l.icon}')">
+      <div class="quick-btn-icon">${l.icon}</div>
+      <div class="quick-btn-name">${l.name.split(' ')[0]}</div>
+      <div class="quick-btn-dot" style="background:${l.color}"></div>
+    </div>`
+  ).join('');
+}
+
+function quickLogTap(name, color, icon) {
+  // If this label is already running as quick timer, stop it
+  if (quickTimerLabel && quickTimerLabel.name === name) {
+    stopQuickTimer(); return;
+  }
+  // If a different quick timer is running, save it first
+  if (quickTimerLabel) stopQuickTimer();
+  // If main timer is running, don't conflict
+  if (timerRunning) {
+    showToast('⏱ Pause main timer first');
+    return;
+  }
+  // Start quick timer
+  quickTimerLabel = { name, color, icon };
+  quickTimerStart = Date.now();
+  document.getElementById('quick-timer-dot').style.background = color;
+  document.getElementById('quick-timer-label').textContent = icon + ' ' + name;
+  document.getElementById('quick-timer-bar').classList.add('active');
+  quickTimerInterval = setInterval(() => {
+    const elapsed = Date.now() - quickTimerStart;
+    const m = Math.floor(elapsed / 60000), s = Math.floor((elapsed % 60000) / 1000);
+    document.getElementById('quick-timer-time').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }, 1000);
+  requestWakeLock();
+  showToast('⏱ ' + name + ' started');
+}
+
+function stopQuickTimer() {
+  if (!quickTimerLabel) return;
+  clearInterval(quickTimerInterval);
+  const elapsed = Date.now() - quickTimerStart;
+  if (elapsed > 5000) { // Only save if more than 5 seconds
+    const entry = {
+      id: Date.now(), label: quickTimerLabel.name, color: quickTimerLabel.color,
+      duration: elapsed, startTime: quickTimerStart, endTime: Date.now()
+    };
+    const labelSnap = quickTimerLabel;
+    quickTimerLabel = null; quickTimerStart = null; quickTimerInterval = null;
+    document.getElementById('quick-timer-bar').classList.remove('active');
+    document.getElementById('quick-timer-time').textContent = '00:00';
+    releaseWakeLock(); renderQuickLogRow();
+    checkIntentional(entry, (e) => { doSaveEntry(e); showToast('✓ ' + labelSnap.name + ' — ' + fmtDuration(elapsed)); });
+    return;
+  }
+  quickTimerLabel = null; quickTimerStart = null; quickTimerInterval = null;
+  document.getElementById('quick-timer-bar').classList.remove('active');
+  document.getElementById('quick-timer-time').textContent = '00:00';
+  releaseWakeLock();
+  renderQuickLogRow();
+}
+
+// ── PRE-SELECT LAST USED LABEL IN MODALS ─────────────────
+function preselectLastLabel(gridId, setFn) {
+  const last = getLastUsedLabel();
+  if (!last) return;
+  const chips = document.getElementById(gridId).querySelectorAll('.label-chip');
+  chips.forEach((chip, i) => {
+    if (LABELS[i] && LABELS[i].name === last) {
+      chip.classList.add('selected');
+      setFn(LABELS[i]);
+    }
+  });
+}
+
+
+// ── INTENTIONAL CHECK ─────────────────────────────────────
+// Labels that always trigger the intentional check
+const MINDLESS_LABELS = ['Social Media','Instagram','TikTok','Twitter/X','Facebook','YouTube','Netflix','Rest','Food'];
+// Labels that are always intentional — skip the check
+const ALWAYS_INTENT = ['Training','Faith','Family','Film Study','School','Recovery','Business','Travel','Sleep'];
+
+let pendingEntry = null;
+let pendingCallback = null;
+
+function checkIntentional(entry, onSave) {
+  // Skip check for always-intentional labels
+  if (ALWAYS_INTENT.includes(entry.label)) { onSave(entry); return; }
+  // Show check for everything else, especially mindless-prone ones
+  pendingEntry = entry;
+  pendingCallback = onSave;
+  const icon = LABELS.find(l => l.name === entry.label)?.icon || '⏱';
+  document.getElementById('intent-entry-icon').textContent = icon;
+  document.getElementById('intent-entry-name').textContent = entry.label;
+  document.getElementById('intent-entry-dur').textContent = fmtDuration(entry.duration);
+  document.getElementById('intent-modal').classList.add('open');
+}
+
+function saveWithIntent(intentional) {
+  document.getElementById('intent-modal').classList.remove('open');
+  if (!pendingEntry) return;
+  pendingEntry.intentional = intentional;
+  if (pendingCallback) pendingCallback(pendingEntry);
+  pendingEntry = null; pendingCallback = null;
+}
+
+function doSaveEntry(entry) {
+  const entries = getEntries(); entries.unshift(entry); saveEntries(entries);
+  renderHome(); renderStats(); renderQuickLogRow(); showToast('✓ Saved');
+}
+
+function getIntentScore(entries) {
+  if (!entries.length) return { score: 100, intentMs: 0, mindlessMs: 0, uncheckedMs: 0 };
+  let intentMs = 0, mindlessMs = 0, uncheckedMs = 0;
+  entries.forEach(e => {
+    if (e.intentional === true) intentMs += e.duration;
+    else if (e.intentional === false) mindlessMs += e.duration;
+    else uncheckedMs += e.duration;
+  });
+  const scored = intentMs + mindlessMs;
+  const score = scored > 0 ? Math.round((intentMs / scored) * 100) : 100;
+  return { score, intentMs, mindlessMs, uncheckedMs };
+}
+
+function updateStreak(){const all=JSON.parse(localStorage.getItem('mirror_entries')||'{}');const today=new Date();let streak=0;for(let i=0;i<365;i++){const d=new Date(today);d.setDate(d.getDate()-i);const k=d.toISOString().split('T')[0];if(all[k]&&all[k].length>0)streak++;else if(i>0)break;}localStorage.setItem('mirror_streak',streak);document.getElementById('stat-streak').textContent=streak+'🔥';}
+
+function renderHome(){
+  const entries=getEntries();const total=entries.reduce((s,e)=>s+e.duration,0);
+  const h=Math.floor(total/3600000),m=Math.floor((total%3600000)/60000);
+  document.getElementById('total-today').textContent=h>0?h+'h '+m+'m tracked':m+'m tracked';
+  const pct=Math.min(100,Math.round((total/86400000)*100));const remaining=Math.max(0,86400000-total);
+  const rh=Math.floor(remaining/3600000),rm=Math.floor((remaining%3600000)/60000);
+  document.getElementById('untracked-fill').style.width=pct+'%';document.getElementById('untracked-pct').textContent=pct+'%';
+  document.getElementById('untracked-text').textContent=(h>0?h+'h '+m+'m':m+'m')+' tracked · '+(rh>0?rh+'h '+rm+'m':rm+'m')+' unaccounted';
+  const list=document.getElementById('log-list');
+  if(!entries.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">⏱</div>Hit Start to begin tracking your first activity</div>';return;}
+  list.innerHTML=entries.map(e=>'<div class="log-item" onclick="this.classList.toggle(\'show-actions\')"><div class="log-dot" style="background:'+e.color+'"></div><div class="log-info"><div class="log-name">'+e.label+'</div><div class="log-time">'+fmtTime(e.startTime)+' – '+fmtTime(e.endTime)+'</div></div><div class="log-duration">'+fmtDuration(e.duration)+'</div><div class="log-action-btns"><button class="log-act-btn log-act-edit" onclick="event.stopPropagation();openEditModal('+e.id+')">✏️</button><button class="log-act-btn log-act-del" onclick="event.stopPropagation();deleteEntry('+e.id+')">✕</button></div></div>').join('');
+}
+
+
+function renderIntentScore(entries) {
+  // Remove existing card if any
+  const existing = document.getElementById('intent-score-card');
+  if (existing) existing.remove();
+  if (!entries.length) return;
+  const { score, intentMs, mindlessMs } = getIntentScore(entries);
+  const scoreColor = score >= 80 ? '#7CB5A0' : score >= 50 ? '#C8A96E' : '#C47B6B';
+  const card = document.createElement('div');
+  card.id = 'intent-score-card';
+  card.className = 'intent-score-card';
+  card.innerHTML = `
+    <div class="intent-score-row">
+      <div class="intent-score-label">Intentionality Score</div>
+      <div class="intent-score-value" style="color:${scoreColor}">${score}%</div>
+    </div>
+    <div class="intent-score-bar"><div class="intent-score-fill" style="width:${score}%;background:${scoreColor}"></div></div>
+    <div class="intent-breakdown">
+      <div class="intent-breakdown-item">✓ Intentional: <span>${fmtDuration(intentMs)}</span></div>
+      <div class="intent-breakdown-item">✕ Mindless: <span style="color:var(--danger)">${fmtDuration(mindlessMs)}</span></div>
+    </div>
+  `;
+  // Insert before pie container
+  document.getElementById('pie-container').before(card);
+}
+function switchStatsDay(day){statsDay=day;document.getElementById('toggle-today').classList.toggle('active',day==='today');document.getElementById('toggle-yesterday').classList.toggle('active',day==='yesterday');renderStats();}
+function renderStats(){
+  const key=statsDay==='yesterday'?yesterdayKey():todayKey();const entries=getEntries(key);const total=entries.reduce((s,e)=>s+e.duration,0);
+  const d=statsDay==='yesterday'?new Date(key+'T12:00:00'):new Date();
+  document.getElementById('stats-date-label').textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+(statsDay==='yesterday'?' — Yesterday':'');
+  document.getElementById('stat-entries').textContent=entries.length;const h=Math.floor(total/3600000),m=Math.floor((total%3600000)/60000);document.getElementById('stat-hours').textContent=h>0?h+'h '+m+'m':m+'m';const streak=localStorage.getItem('mirror_streak')||0;document.getElementById('stat-streak').textContent=streak+'🔥';
+  // Intentionality score card
+  renderIntentScore(entries);
+  const pie=document.getElementById('pie-container');
+  if(!entries.length){pie.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0;">'+(statsDay==='yesterday'?'Nothing logged yesterday yet.':'Start logging to see your breakdown')+'</div>';document.getElementById('entries-list').innerHTML='';return;}
+  const agg={};entries.forEach(e=>{if(!agg[e.label])agg[e.label]={duration:0,color:e.color};agg[e.label].duration+=e.duration;});
+  const items=Object.entries(agg).sort((a,b)=>b[1].duration-a[1].duration);
+  const size=160,cx=80,cy=80,r=60,inner=35;let startAngle=-Math.PI/2,paths='';
+  items.forEach(([lbl,data])=>{const pct=data.duration/total,angle=pct*2*Math.PI,endAngle=startAngle+angle;const x1=cx+r*Math.cos(startAngle),y1=cy+r*Math.sin(startAngle),x2=cx+r*Math.cos(endAngle),y2=cy+r*Math.sin(endAngle),ix1=cx+inner*Math.cos(startAngle),iy1=cy+inner*Math.sin(startAngle),ix2=cx+inner*Math.cos(endAngle),iy2=cy+inner*Math.sin(endAngle),large=angle>Math.PI?1:0;paths+='<path d="M '+ix1+' '+iy1+' L '+x1+' '+y1+' A '+r+' '+r+' 0 '+large+' 1 '+x2+' '+y2+' L '+ix2+' '+iy2+' A '+inner+' '+inner+' 0 '+large+' 0 '+ix1+' '+iy1+'" fill="'+data.color+'" opacity="0.9"/>';startAngle=endAngle;});
+  const totalH=Math.floor(total/3600000),totalM=Math.floor((total%3600000)/60000),centerLabel=totalH>0?totalH+'h '+totalM+'m':totalM+'m';
+  const legend=items.map(([lbl,data])=>'<div class="legend-item"><div class="legend-dot" style="background:'+data.color+'"></div><div class="legend-name">'+lbl+'</div><div class="legend-time">'+fmtDuration(data.duration)+'</div><div class="legend-pct">'+Math.round((data.duration/total)*100)+'%</div></div>').join('');
+  pie.innerHTML='<div class="pie-wrap"><svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+paths+'</svg><div class="pie-center"><div class="pie-total">'+centerLabel+'</div><div class="pie-label">'+(statsDay==='yesterday'?'yesterday':'today')+'</div></div></div><div class="legend">'+legend+'</div>';
+  document.getElementById('entries-list').innerHTML=entries.map(e=>'<div class="entry-row"><div class="entry-color" style="background:'+e.color+'"></div><div class="entry-text"><div class="entry-name">'+e.label+'</div><div class="entry-when">'+fmtTime(e.startTime)+' → '+fmtTime(e.endTime)+'</div></div><div class="entry-dur">'+fmtDuration(e.duration)+'</div></div>').join('')+'<div class="scroll-pad"></div>';
+}
+
+function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');if(name==='stats')renderStats();}
+
+function obNext(step){['ob-1','ob-2','ob-3'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('ob-'+step).style.display='block';}
+function finishOnboarding(){const name=document.getElementById('ob-name-input').value.trim();if(name)localStorage.setItem('mirror_name',name);localStorage.setItem('mirror_onboarded','1');document.getElementById('onboarding').style.display='none';setGreeting();setTimeout(checkMorningModal,400);}
+function setGreeting(){const name=localStorage.getItem('mirror_name')||'';document.getElementById('home-greeting').textContent=name?'Hey '+name+' ◎':'Mirror';}
+
+['label-modal','edit-modal','manual-modal','morning-modal','screentime-modal','intent-modal'].forEach(id=>{document.getElementById(id).addEventListener('click',function(e){if(e.target===this){this.classList.remove('open');if(id==='label-modal')discardTimer();}});});
+
+function init(){
+  const now=new Date();
+  document.getElementById('today-date').textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('daily-quote').textContent='"'+QUOTES[now.getDate()%QUOTES.length]+'"';
+  updateOnlineStatus();updateStreak();setGreeting();renderHome();renderStats();renderQuickLogRow();
+  if(!localStorage.getItem('mirror_onboarded')){document.getElementById('onboarding').style.display='flex';}
+  else{setTimeout(checkMorningModal,800);}
+}
+init();
+</script>
+
+<!-- INTENTIONAL CHECK MODAL -->
+<div class="intent-overlay" id="intent-modal">
+  <div class="intent-sheet">
+    <div style="font-size:28px;margin-bottom:12px;" id="intent-entry-icon">🏀</div>
+    <div class="intent-question" id="intent-question">Was this intentional?</div>
+    <div class="intent-sub" id="intent-sub">You just logged <strong id="intent-entry-name" style="color:var(--text);">Training</strong> for <strong id="intent-entry-dur" style="color:var(--accent);">0m</strong>. Did you choose this, or did it just happen?</div>
+    <div class="intent-btns">
+      <button class="intent-yes" onclick="saveWithIntent(true)">✓ Intentional</button>
+      <button class="intent-no" onclick="saveWithIntent(false)">✕ Mindless</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
