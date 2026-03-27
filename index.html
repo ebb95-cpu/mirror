@@ -220,8 +220,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
   </div>
   <div class="action-btn-row">
-    <button class="action-btn-small" onclick="openManualModal()">✏️ Log past activity</button>
+    <button class="action-btn-small" onclick="openManualModal()">✏️ Log past</button>
     <button class="action-btn-small" onclick="openScreenTimeModal()">📱 Screen Time</button>
+    <button class="action-btn-small" onclick="openScheduleModal()">📅 Schedule</button>
   </div>
   <div class="section-header">
     <div class="section-title">Today's Log</div>
@@ -353,6 +354,32 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   </div>
 </div>
 
+<!-- SCHEDULE IMPORT MODAL -->
+<div class="modal-overlay center" id="schedule-modal">
+  <div class="modal-sheet" style="border-radius:24px;margin:16px;max-height:88vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="modal-title" style="margin-bottom:0;">Import Schedule</div>
+      <button onclick="closeScheduleModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">&times;</button>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Upload a screenshot of your <strong style="color:var(--text)">class schedule, calendar, or any timetable</strong> and Mirror will read it for you.</div>
+    <div id="sched-upload-area" onclick="document.getElementById('sched-file-input').click()" style="border:1px dashed var(--border);border-radius:16px;padding:28px 20px;text-align:center;cursor:pointer;margin-bottom:12px;">
+      <div style="font-size:28px;margin-bottom:8px;">📅</div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:4px;">Tap to upload schedule image</div>
+      <div style="font-size:12px;color:var(--muted);">Screenshot, photo, or saved image</div>
+      <input type="file" id="sched-file-input" accept="image/*" style="display:none;" onchange="handleScheduleImage(event)">
+    </div>
+    <div id="sched-preview-wrap" style="display:none;margin-bottom:12px;"><img id="sched-preview-img" style="width:100%;border-radius:12px;border:1px solid var(--border);"></div>
+    <div id="sched-status" style="display:none;text-align:center;padding:14px;font-size:13px;color:var(--muted);"></div>
+    <div id="sched-results" style="display:none;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;">Detected from schedule</div>
+      <div id="sched-items-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+      <button class="btn-primary" style="width:100%;margin-bottom:10px;" onclick="importScheduleEntries()">Add to Today's Log</button>
+      <button class="btn-ghost" onclick="closeScheduleModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <button class="nav-btn active" id="nav-home" onclick="showScreen('home')"><span style="font-size:20px;">⏱</span>Track</button>
   <button class="nav-btn" id="nav-stats" onclick="showScreen('stats')"><span style="font-size:20px;">◎</span>Mirror</button>
@@ -421,6 +448,172 @@ async function handleScreenTimeImage(event){const file=event.target.files[0];if(
 function toggleSTItem(i){parsedScreenTimeEntries[i].selected=!parsedScreenTimeEntries[i].selected;const btn=document.getElementById('st-toggle-'+i),row=document.getElementById('st-item-'+i);if(parsedScreenTimeEntries[i].selected){btn.textContent='✓';btn.style.background='var(--accent)';btn.style.color='#0A0A0A';row.style.opacity='1';}else{btn.textContent='×';btn.style.background='var(--border)';btn.style.color='var(--muted)';row.style.opacity='0.4';}}
 function importScreenTimeEntries(){const toImport=parsedScreenTimeEntries.filter(e=>e.selected);if(!toImport.length){closeScreenTimeModal();return;}const entries=getEntries();let cursor=Date.now();toImport.forEach(item=>{const durationMs=item.minutes*60000;entries.push({id:Date.now()+Math.random(),label:item.label,color:item.color,duration:durationMs,startTime:cursor-durationMs,endTime:cursor,manual:true,fromScreenTime:true});cursor-=durationMs;});entries.sort((a,b)=>b.startTime-a.startTime);saveEntries(entries);closeScreenTimeModal();renderHome();renderStats();showToast('✓ Imported');}
 
+
+// ── SCHEDULE IMPORT ──────────────────────────────────────
+let parsedScheduleEntries = [];
+
+const SCHEDULE_LABEL_MAP = {
+  'basketball': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'training': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'practice': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'workout': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'gym': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'weightlifting': {label:'Training',color:'#C8A96E',icon:'🏀'},
+  'bible': {label:'Faith',color:'#A87BC4',icon:'✝️'},
+  'church': {label:'Faith',color:'#A87BC4',icon:'✝️'},
+  'devotion': {label:'Faith',color:'#A87BC4',icon:'✝️'},
+  'worship': {label:'Faith',color:'#A87BC4',icon:'✝️'},
+  'prayer': {label:'Faith',color:'#A87BC4',icon:'✝️'},
+  'film': {label:'Film Study',color:'#C47B6B',icon:'🎬'},
+  'film study': {label:'Film Study',color:'#C47B6B',icon:'🎬'},
+  'tape': {label:'Film Study',color:'#C47B6B',icon:'🎬'},
+  'math': {label:'School',color:'#C4B87B',icon:'📚'},
+  'english': {label:'School',color:'#C4B87B',icon:'📚'},
+  'science': {label:'School',color:'#C4B87B',icon:'📚'},
+  'history': {label:'School',color:'#C4B87B',icon:'📚'},
+  'class': {label:'School',color:'#C4B87B',icon:'📚'},
+  'lecture': {label:'School',color:'#C4B87B',icon:'📚'},
+  'study': {label:'School',color:'#C4B87B',icon:'📚'},
+  'homework': {label:'School',color:'#C4B87B',icon:'📚'},
+  'school': {label:'School',color:'#C4B87B',icon:'📚'},
+  'travel': {label:'Travel',color:'#6B9E8A',icon:'✈️'},
+  'commute': {label:'Travel',color:'#6B9E8A',icon:'✈️'},
+  'lunch': {label:'Food',color:'#B87B5A',icon:'🍽️'},
+  'dinner': {label:'Food',color:'#B87B5A',icon:'🍽️'},
+  'breakfast': {label:'Food',color:'#B87B5A',icon:'🍽️'},
+  'meal': {label:'Food',color:'#B87B5A',icon:'🍽️'},
+  'meeting': {label:'Business',color:'#9E8A6B',icon:'💼'},
+  'work': {label:'Business',color:'#9E8A6B',icon:'💼'},
+  'recovery': {label:'Recovery',color:'#5A9EB8',icon:'🧊'},
+  'rest': {label:'Rest',color:'#6E6E6E',icon:'🛋️'},
+  'sleep': {label:'Sleep',color:'#7B9EC4',icon:'😴'},
+  'family': {label:'Family',color:'#7CB5A0',icon:'🏡'},
+};
+
+function matchScheduleLabel(name) {
+  const lower = name.toLowerCase();
+  for (const [key, val] of Object.entries(SCHEDULE_LABEL_MAP)) {
+    if (lower.includes(key)) return val;
+  }
+  return {label: name, color: '#888', icon: '📋'};
+}
+
+function openScheduleModal() {
+  parsedScheduleEntries = [];
+  ['sched-results','sched-status','sched-preview-wrap'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('sched-upload-area').style.display = 'block';
+  document.getElementById('sched-file-input').value = '';
+  document.getElementById('schedule-modal').classList.add('open');
+}
+
+function closeScheduleModal() {
+  document.getElementById('schedule-modal').classList.remove('open');
+  parsedScheduleEntries = [];
+}
+
+async function handleScheduleImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    document.getElementById('sched-preview-img').src = e.target.result;
+    document.getElementById('sched-preview-wrap').style.display = 'block';
+    document.getElementById('sched-upload-area').style.display = 'none';
+    document.getElementById('sched-status').style.display = 'block';
+    document.getElementById('sched-status').innerHTML = '<span style="color:var(--accent);">Reading your schedule...</span>';
+    document.getElementById('sched-results').style.display = 'none';
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{role: 'user', content: [
+            {type: 'image', source: {type: 'base64', media_type: file.type || 'image/jpeg', data: base64}},
+            {type: 'text', text: 'This is an image of a schedule, timetable, or calendar. Extract every event, class, or time block. For each one, return the event name, start time (24h format HH:MM), and end time (24h format HH:MM). If you see a weekly schedule, extract only TODAY\'s events ('+new Date().toLocaleDateString('en-US',{weekday:'long'})+'), or if you can\'t tell the day, extract all unique events. Return ONLY a JSON array, no markdown: [{"name":"Event Name","start":"09:00","end":"10:30"}]. If an event has no clear end time, estimate 1 hour after start. Only return the JSON array.'}
+          ]}]
+        })
+      });
+      const data = await res.json();
+      const text = data.content.find(b => b.type === 'text')?.text || '[]';
+      let parsed;
+      try { parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); }
+      catch { throw new Error('Could not read schedule.'); }
+      if (!Array.isArray(parsed) || !parsed.length) throw new Error('No schedule events found.');
+      parsedScheduleEntries = parsed.map(item => {
+        const matched = matchScheduleLabel(item.name);
+        return {
+          name: item.name,
+          start: item.start,
+          end: item.end,
+          label: matched.label,
+          color: matched.color,
+          icon: matched.icon,
+          selected: true
+        };
+      });
+      document.getElementById('sched-status').style.display = 'none';
+      document.getElementById('sched-results').style.display = 'block';
+      document.getElementById('sched-items-list').innerHTML = parsedScheduleEntries.map((item, i) => {
+        const [sh,sm] = item.start.split(':').map(Number);
+        const [eh,em] = item.end.split(':').map(Number);
+        let diffMin = (eh*60+em) - (sh*60+sm);
+        if (diffMin <= 0) diffMin += 1440;
+        const durStr = diffMin >= 60 ? Math.floor(diffMin/60)+'h '+(diffMin%60)+'m' : diffMin+'m';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:12px;border:1px solid var(--border);" id="sched-item-'+i+'">'+
+          '<div style="width:8px;height:8px;border-radius:50%;background:'+item.color+';flex-shrink:0;"></div>'+
+          '<div style="flex:1;"><div style="font-size:14px;color:var(--text);">'+item.icon+' '+item.label+'</div>'+
+          '<div style="font-size:11px;color:var(--muted);">'+item.name+' · '+item.start+' – '+item.end+'</div></div>'+
+          '<div style="font-size:13px;color:var(--accent);">'+durStr+'</div>'+
+          '<button onclick="toggleSchedItem('+i+')" id="sched-toggle-'+i+'" style="width:28px;height:28px;border-radius:8px;background:var(--accent);border:none;color:#0A0A0A;font-size:13px;cursor:pointer;">✓</button></div>';
+      }).join('');
+    } catch (err) {
+      document.getElementById('sched-status').innerHTML = '<span style="color:var(--danger);">⚠ '+err.message+'</span>';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function toggleSchedItem(i) {
+  parsedScheduleEntries[i].selected = !parsedScheduleEntries[i].selected;
+  const btn = document.getElementById('sched-toggle-'+i), row = document.getElementById('sched-item-'+i);
+  if (parsedScheduleEntries[i].selected) {
+    btn.textContent = '✓'; btn.style.background = 'var(--accent)'; btn.style.color = '#0A0A0A'; row.style.opacity = '1';
+  } else {
+    btn.textContent = '×'; btn.style.background = 'var(--border)'; btn.style.color = 'var(--muted)'; row.style.opacity = '0.4';
+  }
+}
+
+function importScheduleEntries() {
+  const toImport = parsedScheduleEntries.filter(e => e.selected);
+  if (!toImport.length) { closeScheduleModal(); return; }
+  const entries = getEntries();
+  const today = new Date();
+  toImport.forEach(item => {
+    const [sh,sm] = item.start.split(':').map(Number);
+    const [eh,em] = item.end.split(':').map(Number);
+    let diffMin = (eh*60+em) - (sh*60+sm);
+    if (diffMin <= 0) diffMin += 1440;
+    const durationMs = diffMin * 60000;
+    const startTs = new Date(today.getFullYear(), today.getMonth(), today.getDate(), sh, sm, 0).getTime();
+    entries.push({
+      id: Date.now() + Math.random(),
+      label: item.label,
+      color: item.color,
+      duration: durationMs,
+      startTime: startTs,
+      endTime: startTs + durationMs,
+      manual: true,
+      fromSchedule: true
+    });
+  });
+  entries.sort((a, b) => b.startTime - a.startTime);
+  saveEntries(entries);
+  closeScheduleModal();
+  renderHome(); renderStats(); showToast('✓ Schedule imported');
+}
 
 // ── QUICK LOG ─────────────────────────────────────────────
 let quickTimerInterval = null;
@@ -641,7 +834,7 @@ function obNext(step){['ob-1','ob-2','ob-3'].forEach(id=>document.getElementById
 function finishOnboarding(){const name=document.getElementById('ob-name-input').value.trim();if(name)localStorage.setItem('mirror_name',name);localStorage.setItem('mirror_onboarded','1');document.getElementById('onboarding').style.display='none';setGreeting();setTimeout(checkMorningModal,400);}
 function setGreeting(){const name=localStorage.getItem('mirror_name')||'';document.getElementById('home-greeting').textContent=name?'Hey '+name+' ◎':'Mirror';}
 
-['label-modal','edit-modal','manual-modal','morning-modal','screentime-modal','intent-modal'].forEach(id=>{document.getElementById(id).addEventListener('click',function(e){if(e.target===this){this.classList.remove('open');if(id==='label-modal')discardTimer();}});});
+['label-modal','edit-modal','manual-modal','morning-modal','screentime-modal','intent-modal','schedule-modal'].forEach(id=>{document.getElementById(id).addEventListener('click',function(e){if(e.target===this){this.classList.remove('open');if(id==='label-modal')discardTimer();}});});
 
 function init(){
   const now=new Date();
